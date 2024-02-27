@@ -74,8 +74,6 @@ EYES_CLOSED_COUNTER = 0
 COUNTER = 0
 
 DIRECTORY_NAME = "model"
-OPEN_CLOSED_MODEL_NAME = DIRECTORY_NAME + \
-    "/public/open-closed-eye-0001/open-closed-eye"
 FACIAL_DETECTION_MODEL_NAME = DIRECTORY_NAME + \
     "/face-detection-adas-0001/FP32/face-detection-adas-0001.xml"
 FACIAL_LANDMARKS_MODEL_NAME = DIRECTORY_NAME + \
@@ -153,7 +151,7 @@ while cap.isOpened():
         y_min = int(y_min * frame_h)
         x_max = int(x_max * frame_w)
         y_max = int(y_max * frame_h)
-        
+
         if x_max - x_min > 100:
             cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
 
@@ -167,8 +165,6 @@ while cap.isOpened():
 
             left_eye_detect_result = open_closed_eye_detector.detect(left_eye)
             right_eye_detect_result = open_closed_eye_detector.detect(right_eye)
-            cv2.imshow('left_eye', left_eye)
-            cv2.imshow('right_eye', right_eye)
 
             left_eye_open_prob = left_eye_detect_result[0][1][0][0]
             right_eye_open_prob = right_eye_detect_result[0][1][0][0]
@@ -180,7 +176,7 @@ while cap.isOpened():
             else:
                 cv2.putText(frame, 'Eyes Open', (x_min, y_max + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9,
                             (0, 255, 0), 2)
-            
+
             #State에 맞게 Text값 조정
             cv2.putText(frame, focus_state[state], (x_min, y_min), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
             COUNTER += 1
@@ -193,7 +189,7 @@ while cap.isOpened():
                     state = 2
                 EYES_CLOSED_COUNTER = 0
                 COUNTER = 0
-                    
+
         #print(EYES_CLOSED_COUNTER)
         cv2.imshow('frame', frame)
 
