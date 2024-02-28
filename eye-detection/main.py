@@ -6,6 +6,9 @@ import os
 from detector import Detector
 from landmark_detector import LandmarkDetector
 from helper import Helper
+import collections
+import time
+import recognition_detector as Recognition
 
 OPEN_CLOSED_THRESHOLD = 0.7
 FACE_DETECTION_THRESHOLD = 0.5
@@ -64,31 +67,80 @@ recognition_model_encoder = core.read_model(DRIVER_ACTION_RECOGNITION_MODEL_NAME
                                             '/driver-action-recognition-adas-0002-encoder/FP16/driver-action-recognition-adas-0002-encoder.xml')
 recognition_model_encoder_compiled = core.compile_model(
     recognition_model_encoder, "AUTO")
-recognition_encoder = Detector(recognition_model_encoder_compiled)
 
 recognition_model_decoder = core.read_model(DRIVER_ACTION_RECOGNITION_MODEL_NAME +
                                             '/driver-action-recognition-adas-0002-decoder/FP16/driver-action-recognition-adas-0002-decoder.xml')
 recognition_model_decoder_compiled = core.compile_model(
     recognition_model_decoder, "AUTO")
-recognition_decoder = Detector(recognition_model_decoder_compiled)
 
-cap = cv2.VideoCapture(2)
-helper = Helper()recognition_decoder.
+cap = cv2.VideoCapture(0)
+cap2 = cv2.VideoCapture(2)
+helper = Helper()
 
-while cap.isOpened():
+height_en, width_en = list(recognition_model_encoder.input(0).shape)[2:]
+frames2decode = list(recognition_model_decoder.input(0).shape)[0:][1]
+
+size = height_en
+sample_duration = frames2decode
+processing_time = 0
+processing_times = collections.deque()
+encoder_output = []
+decoded_labels = [0, 0, 0]
+decoded_top_probs = [0, 0, 0]
+cnt = 0
+text_inference_template = "Infer Time:{Time:.1f}ms, {fps:.1f}FPS"
+text_template = "{label},{conf:.2f}%"
+
+while cap.isOpened() and cap2.isOpened():
     ret, frame = cap.read()
+    ret2, frame2 = cap2.read()
     if not ret:
         break
+    
+    scale = 1280 / max(frame.shape)
 
     equ = helper.get_histogram(frame)
+    
     equ = cv2.cvtColor(equ, cv2.COLOR_GRAY2BGR)
+    recog = frame2.copy()
+    cv2.imshow("frame2", recog)
+    if scale < 1:
+        recog = cv2.resize(recog, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+
+    if cnt % 2 == 0:
+        (preprocessed, _) = Recognition.preprocessing(recog, size)
+
+        start_time = time.time()
+
+        encoder_output.append(Recognition.encoder(preprocessed, recognition_model_encoder_compiled))
+
+        if len(encoder_output) == sample_duration:
+            decoded_labels, decoded_top_probs = Recognition.decoder(encoder_output, recognition_model_decoder_compiled, labels)
+            encoder_output = []
+
+        stop_time = time.time()
+
+        processing_times.append(stop_time - start_time)
+
+        if len(processing_times) > 200:
+            processing_times.popleft()
+        
+        processing_time = np.mean(processing_times) * 1000
+        fps = 1000 / processing_time
+
+    for i in range(0, 3):
+        display_text = text_template.format(
+            label=decoded_labels[i],
+            conf=decoded_top_probs[i] * 100,
+        )
+        Recognition.display_text_fnc(frame, display_text, i)
+
+    display_text = text_inference_template.format(Time=processing_time, fps=fps)
+    Recognition.display_text_fnc(frame, display_text, 3)
 
     # press esc to quit
     if cv2.waitKey(1) & 0xFF == 27:
         break
-
-    cv2.putText(frame, 'Press ESC to quit', (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
 
     face_detect_result = face_detector.detect(equ)
 
@@ -129,9 +181,6 @@ while cap.isOpened():
 
             left_eye_detect_result = open_closed_eye_detector.detect(left_eye)
             right_eye_detect_result = open_closed_eye_detector.detect(right_eye)
-
-            cv2.imshow('left', left_eye)
-            cv2.imshow('right', right_eye)
 
             left_eye_open_prob = left_eye_detect_result[0][1][0][0]
             right_eye_open_prob = right_eye_detect_result[0][1][0][0]
