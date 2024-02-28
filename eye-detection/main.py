@@ -5,6 +5,7 @@ import numpy as np
 import os
 from detector import Detector
 from landmark_detector import LandmarkDetector
+from helper import Helper
 
 OPEN_CLOSED_THRESHOLD = 0.7
 FACE_DETECTION_THRESHOLD = 0.5
@@ -71,18 +72,17 @@ recognition_model_decoder_compiled = core.compile_model(
     recognition_model_decoder, "AUTO")
 recognition_decoder = Detector(recognition_model_decoder_compiled)
 
-cap = cv2.VideoCapture(0)
-recognition_decoder.
+cap = cv2.VideoCapture(2)
+helper = Helper()recognition_decoder.
 
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
-    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    contrast = 0.8
-    brightness = -20
-    frame[:, :, 2] = np.clip(contrast * frame[:, :, 2] + brightness, 0, 255)
-    frame = cv2.cvtColor(frame, cv2.COLOR_HSV2BGR)
+
+    equ = helper.get_histogram(frame)
+    equ = cv2.cvtColor(equ, cv2.COLOR_GRAY2BGR)
+
     # press esc to quit
     if cv2.waitKey(1) & 0xFF == 27:
         break
@@ -90,13 +90,13 @@ while cap.isOpened():
     cv2.putText(frame, 'Press ESC to quit', (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
 
-    face_detect_result = face_detector.detect(frame)
+    face_detect_result = face_detector.detect(equ)
 
     # filter out face detection results with confidence(detection[2]) < 0.5
     valid_detections = [detection for detection in face_detect_result[0]
                         [0] if detection[2] > FACE_DETECTION_THRESHOLD]
     # frame shape: height, width, channels. get height and width
-    frame_h, frame_w = frame.shape[:2]
+    frame_h, frame_w = equ.shape[:2]
 
     if len(valid_detections) == 0:
         cv2.putText(frame, 'No Face Detected', (10, 60),
@@ -120,7 +120,7 @@ while cap.isOpened():
                           (x_max, y_max), (0, 255, 0), 2)
 
             # crop face
-            face = frame[y_min:y_max, x_min:x_max]
+            face = equ[y_min:y_max, x_min:x_max]
 
             # detect facial landmarks
             landmark_detect_result = facial_landmarks_detector.detect(face)
@@ -128,8 +128,10 @@ while cap.isOpened():
                 face, landmark_detect_result)
 
             left_eye_detect_result = open_closed_eye_detector.detect(left_eye)
-            right_eye_detect_result = open_closed_eye_detector.detect(
-                right_eye)
+            right_eye_detect_result = open_closed_eye_detector.detect(right_eye)
+
+            cv2.imshow('left', left_eye)
+            cv2.imshow('right', right_eye)
 
             left_eye_open_prob = left_eye_detect_result[0][1][0][0]
             right_eye_open_prob = right_eye_detect_result[0][1][0][0]
