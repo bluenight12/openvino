@@ -19,6 +19,9 @@ FACIAL_LANDMARKS_MODEL_NAME = DIRECTORY_NAME + \
     "/facial-landmarks-35-adas-0002/FP32/facial-landmarks-35-adas-0002.xml"
 CONVERTED_OPEN_CLOSED_EYE_MODEL_NAME = DIRECTORY_NAME + \
     "/public/open-closed-eye-0001/FP32/open-closed-eye-0001.xml"
+DRIVER_ACTION_RECOGNITION_MODEL_NAME = DIRECTORY_NAME + \
+    "/driver-action-recognition-adas-0002"
+
 
 focus_state = ['Good', 'Warning', 'Bad']
 state = 0
@@ -36,9 +39,10 @@ facial_landmarks_detector = LandmarkDetector(facial_landmarks_model_compiled)
 
 model_name = 'open-closed-eye-0001'
 
-#omz converter를 이용한 bin, xml file 만들기
+# omz converter를 이용한 bin, xml file 만들기
 if not Path(CONVERTED_OPEN_CLOSED_EYE_MODEL_NAME).exists():
-    os.system(f'omz_converter --name {model_name} --precisions FP32 --download_dir {Path(DIRECTORY_NAME)} --output_dir {Path(DIRECTORY_NAME)}')
+    os.system(
+        f'omz_converter --name {model_name} --precisions FP32 --download_dir {Path(DIRECTORY_NAME)} --output_dir {Path(DIRECTORY_NAME)}')
 
 
 # 변환한 모델 사용
@@ -47,8 +51,28 @@ open_closed_eye_model_compiled = core.compile_model(
     open_closed_eye_model, 'AUTO')
 open_closed_eye_detector = Detector(open_closed_eye_model_compiled)
 
-cap = cv2.VideoCapture(0)
+vocab_file_path = Path(DRIVER_ACTION_RECOGNITION_MODEL_NAME +
+                       "/driver_actions.txt")
 
+with vocab_file_path.open(mode='r') as f:
+    labels = [line.strip() for line in f]
+
+print(labels[0:9], np.shape(labels))
+
+recognition_model_encoder = core.read_model(DRIVER_ACTION_RECOGNITION_MODEL_NAME +
+                                            '/driver-action-recognition-adas-0002-encoder/FP16/driver-action-recognition-adas-0002-encoder.xml')
+recognition_model_encoder_compiled = core.compile_model(
+    recognition_model_encoder, "AUTO")
+recognition_encoder = Detector(recognition_model_encoder_compiled)
+
+recognition_model_decoder = core.read_model(DRIVER_ACTION_RECOGNITION_MODEL_NAME +
+                                            '/driver-action-recognition-adas-0002-decoder/FP16/driver-action-recognition-adas-0002-decoder.xml')
+recognition_model_decoder_compiled = core.compile_model(
+    recognition_model_decoder, "AUTO")
+recognition_decoder = Detector(recognition_model_decoder_compiled)
+
+cap = cv2.VideoCapture(0)
+recognition_decoder.
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -57,7 +81,7 @@ while cap.isOpened():
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     contrast = 0.8
     brightness = -20
-    frame[:,:,2] = np.clip(contrast * frame[:,:,2] + brightness, 0, 255)
+    frame[:, :, 2] = np.clip(contrast * frame[:, :, 2] + brightness, 0, 255)
     frame = cv2.cvtColor(frame, cv2.COLOR_HSV2BGR)
     # press esc to quit
     if cv2.waitKey(1) & 0xFF == 27:
@@ -92,7 +116,8 @@ while cap.isOpened():
         y_max = int(y_max * frame_h)
 
         if x_max - x_min > 100:
-            cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 0), 2)
+            cv2.rectangle(frame, (x_min, y_min),
+                          (x_max, y_max), (0, 255, 0), 2)
 
             # crop face
             face = frame[y_min:y_max, x_min:x_max]
@@ -103,7 +128,8 @@ while cap.isOpened():
                 face, landmark_detect_result)
 
             left_eye_detect_result = open_closed_eye_detector.detect(left_eye)
-            right_eye_detect_result = open_closed_eye_detector.detect(right_eye)
+            right_eye_detect_result = open_closed_eye_detector.detect(
+                right_eye)
 
             left_eye_open_prob = left_eye_detect_result[0][1][0][0]
             right_eye_open_prob = right_eye_detect_result[0][1][0][0]
@@ -116,8 +142,9 @@ while cap.isOpened():
                 cv2.putText(frame, 'Eyes Open', (x_min, y_max + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9,
                             (0, 255, 0), 2)
 
-            #State에 맞게 Text값 조정
-            cv2.putText(frame, focus_state[state], (x_min, y_min), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+            # State에 맞게 Text값 조정
+            cv2.putText(frame, focus_state[state], (x_min, y_min),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
             COUNTER += 1
             if COUNTER > 100:
                 if EYES_CLOSED_COUNTER < 20:
@@ -129,7 +156,7 @@ while cap.isOpened():
                 EYES_CLOSED_COUNTER = 0
                 COUNTER = 0
 
-        #print(EYES_CLOSED_COUNTER)
+        # print(EYES_CLOSED_COUNTER)
         cv2.imshow('frame', frame)
 
 cap.release()
