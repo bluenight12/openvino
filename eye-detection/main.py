@@ -96,26 +96,29 @@ while cap.isOpened() and cap2.isOpened():
     ret2, frame2 = cap2.read()
     if not ret:
         break
-    
+
     scale = 1280 / max(frame.shape)
 
     equ = helper.get_histogram(frame)
-    
+
     equ = cv2.cvtColor(equ, cv2.COLOR_GRAY2BGR)
     recog = frame2.copy()
     cv2.imshow("frame2", recog)
     if scale < 1:
-        recog = cv2.resize(recog, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+        recog = cv2.resize(recog, None, fx=scale, fy=scale,
+                           interpolation=cv2.INTER_AREA)
 
     if cnt % 2 == 0:
         (preprocessed, _) = Recognition.preprocessing(recog, size)
 
         start_time = time.time()
 
-        encoder_output.append(Recognition.encoder(preprocessed, recognition_model_encoder_compiled))
+        encoder_output.append(Recognition.encoder(
+            preprocessed, recognition_model_encoder_compiled))
 
         if len(encoder_output) == sample_duration:
-            decoded_labels, decoded_top_probs = Recognition.decoder(encoder_output, recognition_model_decoder_compiled, labels)
+            decoded_labels, decoded_top_probs = Recognition.decoder(
+                encoder_output, recognition_model_decoder_compiled, labels)
             encoder_output = []
 
         stop_time = time.time()
@@ -124,7 +127,7 @@ while cap.isOpened() and cap2.isOpened():
 
         if len(processing_times) > 200:
             processing_times.popleft()
-        
+
         processing_time = np.mean(processing_times) * 1000
         fps = 1000 / processing_time
 
@@ -134,8 +137,12 @@ while cap.isOpened() and cap2.isOpened():
             conf=decoded_top_probs[i] * 100,
         )
         Recognition.display_text_fnc(frame, display_text, i)
+        if (decoded_labels[i] == 'Texting right' or decoded_labels[i] == 'Texting left') and decoded_top_probs[i] > 0.8:
+            Recognition.display_text_fnc(
+                frame, 'DO NOT USE CELL PHONE', 6, 100, (0, 0, 255))
 
-    display_text = text_inference_template.format(Time=processing_time, fps=fps)
+    display_text = text_inference_template.format(
+        Time=processing_time, fps=fps)
     Recognition.display_text_fnc(frame, display_text, 3)
 
     # press esc to quit
@@ -180,7 +187,8 @@ while cap.isOpened() and cap2.isOpened():
                 face, landmark_detect_result)
 
             left_eye_detect_result = open_closed_eye_detector.detect(left_eye)
-            right_eye_detect_result = open_closed_eye_detector.detect(right_eye)
+            right_eye_detect_result = open_closed_eye_detector.detect(
+                right_eye)
 
             left_eye_open_prob = left_eye_detect_result[0][1][0][0]
             right_eye_open_prob = right_eye_detect_result[0][1][0][0]

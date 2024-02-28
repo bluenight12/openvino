@@ -91,7 +91,7 @@ def rec_frame_display(frame: np.ndarray, roi) -> np.ndarray:
     return frame
 
 
-def display_text_fnc(frame: np.ndarray, display_text: str, index: int):
+def display_text_fnc(frame: np.ndarray, display_text: str, index: int, left: int = 0, color: tuple = (255, 255, 255)):
     """
     Include a text on the analyzed frame
 
@@ -101,12 +101,12 @@ def display_text_fnc(frame: np.ndarray, display_text: str, index: int):
 
     """
     # Configuration for displaying images with text.
-    FONT_COLOR = (255, 255, 255)
+    FONT_COLOR = color
     FONT_COLOR2 = (0, 0, 0)
     FONT_STYLE = cv2.FONT_HERSHEY_DUPLEX
     FONT_SIZE = 0.7
     TEXT_VERTICAL_INTERVAL = 25
-    TEXT_LEFT_MARGIN = 15
+    TEXT_LEFT_MARGIN = 15 + left
     # ROI over actual frame
     (processed, roi) = center_crop(frame)
     # Draw a ROI over actual frame.
